@@ -2,6 +2,7 @@
 __pycache__/
 *.py[codz]
 *$py.class
+audit.json
 
 # C extensions
 *.so
