@@ -17,20 +17,22 @@ class Device:
 
 xml_file= Path("PA2_sample1.xml")
 
-yaml_file= Path("PA2_policy.yaml")
+xml_dict = {}
+roles_dict={}
+interfaces_dict= {"up":0, "down":0,"other":0}#Values here can be hard coded since there is only up and down and other statuses
+skipped_devices=0
+total_devices=0
+violations=[]
 
+
+with open("PA2_policy.yaml", "r") as f:
+    yaml_config=yaml.safe_load(f)
 
 
 if xml_file.exists():
     tree = ET.parse(xml_file)
     root = tree.getroot()
     site_name=root.get("site")#the site
-    xml_dict = {}
-    roles_dict={}
-    interfaces_dict= {"up":0, "down":0,"other":0}#Values here can be hard coded since there is only up and down and other statuses
-    skipped_devices=0
-    total_devices=0
-    required_owner=True
 
     for device in root.findall("device"):
         device_id= device.get("id")
@@ -43,7 +45,8 @@ if xml_file.exists():
             print(f"{device_id} owner is: {find_owner.text}")
         else:
             print(f"{device_id} has no owner")
-            required_owner=False
+            #missing_owner_dict = {"device" : device_id, "type" : "missing_owner"}
+            #violations.append(missing_owner_dict)
 
         if device_id is not None:
             total_devices+=1
@@ -55,6 +58,11 @@ if xml_file.exists():
             roles_dict[device_role]+=1
         else:
             roles_dict[device_role]=1
+
+        #MUST COMMIT BEFORE NEXT VIOLATION!!!
+        if device_role not in yaml_config['min_os']:
+            unknown_role_dict = {"device" : device_id , "type" : "unknown_role", "role": device_role}
+            violations.append(unknown_role_dict)
         
 
         for interfaces in device.findall("interface"):
@@ -76,6 +84,8 @@ xml_dict["total_devices"] = total_devices
 xml_dict["skipped_devices"] = skipped_devices
 xml_dict["roles"]= roles_dict
 xml_dict["interfaces"]= interfaces_dict
+xml_dict["violations"]= violations
+print(violations)
 print(xml_dict)
 
 
@@ -83,10 +93,9 @@ with open("audit.json","w",encoding="utf-8") as f:
     json.dump(xml_dict,f, indent=1,ensure_ascii=False)
 
 
-if yaml_file.exists():
-    with open(yaml_file, "r") as f:
-        yaml_config=yaml.safe_load(f)  
-else:
-    print(f"{yaml_file} does not exist")
+
+
+
+        
 
 
