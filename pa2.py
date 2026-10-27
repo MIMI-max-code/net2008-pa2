@@ -73,7 +73,12 @@ if xml_file.exists():
             else:
                 interfaces_dict["other"] +=1
 
-            
+            if interface_status == "down":
+                interfaces_down_count+=1
+        if 'max_down_interfaces' in yaml_config:
+            if interfaces_down_count > yaml_config['max_down_interfaces']:
+                max_down_dict = {"device" : device_id, "type" : "too_many_down", "down" : interfaces_down_count}
+                violations.append(max_down_dict)
             
         
     
