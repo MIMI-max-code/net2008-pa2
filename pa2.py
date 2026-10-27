@@ -10,10 +10,28 @@ class BadInputFile(Exception):
 
 class Device:
 
-    def __init__(self, hostname,ip,ports=24):
-        self.hostname=hostname
-        self.ip=ip
-        self.ports=ports
+    def __init__(self, id,role,os,owner,interfaces):
+        self.id=id
+        self.role=role
+        self.os=os
+        self.owner=owner
+        self.interfaces=interfaces
+
+def parse_version(string):
+    """This will be used to split string versions into a list of ints"""
+    split= string.split(".")
+    for i in range(len(split)):
+        split[i]=int(split[i])
+    return split
+
+def equal_version_length(list1,list2):
+    """Used when version lengths are not equal"""
+    if len(list1) < len(list2):
+        while len(list1)< len(list2):
+            list1.append(0)
+    else:
+        while len(list2)< len(list1):
+            list2.append(0)
 
 xml_file= Path("PA2_sample1.xml")
 
@@ -23,6 +41,7 @@ interfaces_dict= {"up":0, "down":0,"other":0}#Values here can be hard coded sinc
 skipped_devices=0
 total_devices=0
 violations=[]
+compliant_list=[]
 
 
 with open("PA2_policy.yaml", "r") as f:
@@ -34,19 +53,20 @@ if xml_file.exists():
     root = tree.getroot()
     site_name=root.get("site")#the site
     for device in root.findall("device"):
-        
+        compliant_device= True
         device_id= device.get("id")
         device_role=device.get("role")
         device_os=device.get("os")
         find_owner= device.find("owner")
         
-        #Fix this part
+        
         if 'require_owner' in yaml_config:
             if yaml_config['require_owner'] is True:
                 #if the owner tag has a string of spaces, strip will decompress it to empty string
                 if find_owner is None or find_owner.text is None or find_owner.text.strip() == "":
                     missing_owner_dict = {"device" : device_id, "type" : "missing_owner"}
                     violations.append(missing_owner_dict)
+                    compliant_device= False
 
         if device_id is not None:
             total_devices+=1
@@ -63,6 +83,15 @@ if xml_file.exists():
             if device_role not in yaml_config['min_os']:
                 unknown_role_dict = {"device" : device_id , "type" : "unknown_role", "role": device_role}
                 violations.append(unknown_role_dict)
+                compliant_device=False
+            else:
+                yaml_list = parse_version(yaml_config['min_os'][device_role])
+                device_os_list=parse_version(device_os)
+                equal_version_length(yaml_list,device_os_list)
+                if device_os_list < yaml_list:
+                    os_outdated_dict={"device" : device_id, "type" : "os_outdated", "found" : device_os, "required" : yaml_config['min_os'][device_role]}
+                    violations.append(os_outdated_dict)
+                    compliant_device=False
         
         interfaces_down_count=0
         for interfaces in device.findall("interface"):
@@ -79,11 +108,19 @@ if xml_file.exists():
             if interfaces_down_count > yaml_config['max_down_interfaces']:
                 max_down_dict = {"device" : device_id, "type" : "too_many_down", "down" : interfaces_down_count}
                 violations.append(max_down_dict)
+                compliant_device=False
+
+        if compliant_device == True:
+            compliant_list.append(device_id)
+
+    compliant_list.sort()
+
             
         
     
 else:
     print(f"{xml_file} does not exist")
+
 
 
 xml_dict["site"] = site_name
@@ -92,6 +129,7 @@ xml_dict["skipped_devices"] = skipped_devices
 xml_dict["roles"]= roles_dict
 xml_dict["interfaces"]= interfaces_dict
 xml_dict["violations"]= violations
+xml_dict["compliant"]= compliant_list
 print(xml_dict)
 
 
@@ -100,8 +138,13 @@ with open("audit.json","w",encoding="utf-8") as f:
 
 
 
+def main():
+    print()
 
 
+
+if __name__ == "__main__":
+    main()
         
 
 
