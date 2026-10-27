@@ -33,20 +33,20 @@ if xml_file.exists():
     tree = ET.parse(xml_file)
     root = tree.getroot()
     site_name=root.get("site")#the site
-
     for device in root.findall("device"):
+        
         device_id= device.get("id")
         device_role=device.get("role")
         device_os=device.get("os")
         find_owner= device.find("owner")
         
         #Fix this part
-        if find_owner is not None:
-            print(f"{device_id} owner is: {find_owner.text}")
-        else:
-            print(f"{device_id} has no owner")
-            #missing_owner_dict = {"device" : device_id, "type" : "missing_owner"}
-            #violations.append(missing_owner_dict)
+        if 'require_owner' in yaml_config:
+            if yaml_config['require_owner'] is True:
+                #if the owner tag has a string of spaces, strip will decompress it to empty string
+                if find_owner is None or find_owner.text is None or find_owner.text.strip() == "":
+                    missing_owner_dict = {"device" : device_id, "type" : "missing_owner"}
+                    violations.append(missing_owner_dict)
 
         if device_id is not None:
             total_devices+=1
@@ -59,14 +59,13 @@ if xml_file.exists():
         else:
             roles_dict[device_role]=1
 
-        #MUST COMMIT BEFORE NEXT VIOLATION!!!
-        if device_role not in yaml_config['min_os']:
-            unknown_role_dict = {"device" : device_id , "type" : "unknown_role", "role": device_role}
-            violations.append(unknown_role_dict)
+        if 'min_os' in yaml_config:
+            if device_role not in yaml_config['min_os']:
+                unknown_role_dict = {"device" : device_id , "type" : "unknown_role", "role": device_role}
+                violations.append(unknown_role_dict)
         
-
+        interfaces_down_count=0
         for interfaces in device.findall("interface"):
-            interface_name= interfaces.get("name")
             interface_status=interfaces.get("status")
             
             if interface_status in interfaces_dict:
@@ -74,7 +73,10 @@ if xml_file.exists():
             else:
                 interfaces_dict["other"] +=1
 
-        print(f"Device id is: {device_id} using version {device_os} and its role is: {device_role} with a status of {interface_status}\n")
+            
+            
+        
+    
 else:
     print(f"{xml_file} does not exist")
 
@@ -85,7 +87,6 @@ xml_dict["skipped_devices"] = skipped_devices
 xml_dict["roles"]= roles_dict
 xml_dict["interfaces"]= interfaces_dict
 xml_dict["violations"]= violations
-print(violations)
 print(xml_dict)
 
 
