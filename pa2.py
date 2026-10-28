@@ -3,10 +3,9 @@ import sys
 import json
 import xml.etree.ElementTree as ET
 import yaml
-import requests
 from pathlib import Path
-class BadInputFile(Exception):
-    """Raised when a bad file is sent"""
+class MappingError(Exception):
+    """Raised when a policy file is not properly mapped"""
 
 class Device:
 
@@ -16,6 +15,19 @@ class Device:
         self.os=os
         self.owner=owner
         self.interfaces=interfaces
+
+def parse_xml(xml_file):
+    """Parses an xml file"""
+    file_xml = Path(xml_file)
+    tree = ET.parse(file_xml)
+    root = tree.getroot()
+    return root
+
+def parse_yaml(yaml_file):
+    """Parses a yaml file"""
+    with open(yaml_file, "r") as f:
+        yaml_config=yaml.safe_load(f)
+    return yaml_config
 
 def parse_version(string):
     """This will be used to split string versions into a list of ints"""
@@ -139,7 +151,37 @@ with open("audit.json","w",encoding="utf-8") as f:
 
 
 def main():
-    print()
+    
+    
+    if len(sys.argv)!= 3:
+        print("usage: python pa2.py DEVICES.xml POLICY.yaml")
+        sys.exit(2)
+
+    xml_file=sys.argv[1] #Correlates to the DEVICE.xml
+    yaml_file=sys.argv[2] #Correlates to the POLICY.yaml
+
+    try:
+        parsed_xml_file=parse_xml(xml_file)
+        parsed_yaml_file=parse_yaml(yaml_file)
+        
+        #Checks if the policy file is not a dict
+        if not isinstance(parsed_yaml_file,dict):
+            raise MappingError(yaml_file)
+    except FileNotFoundError as e:
+        print(f"{e.filename} could not be found")
+        sys.exit(1)
+    except ET.ParseError as xml_error:
+        print(f"{xml_file} has a parsing error: {xml_error}")
+        sys.exit(1)
+    except yaml.YAMLError as yaml_error:
+        print(f"{yaml_file} has a parsing error: {yaml_error}")
+        sys.exit(1)
+    except MappingError as error:
+        print(f"{error} policy file is not properly mapped")
+        sys.exit(1)
+
+    
+    
 
 
 
